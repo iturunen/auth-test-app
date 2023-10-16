@@ -18,7 +18,7 @@ npm run start:dev
 ```
 ## Configure Keycloak
 
-1. Go to http://localhost:8080/auth  http://localhost:8080/auth/admin/master/console/#/master/clients (to get there need to login)
+1. Go to http://localhost:8080/auth/admin/master/console/#/master/clients (to get there need to login)
 2. Click create client
 3. Capability config: enable "Client authentication", unselect all from "Authentication flow" but Service accounts roles need to be selected
 4. Go to see "Client details" > "Credentials"
@@ -26,19 +26,19 @@ npm run start:dev
 
 ## Obtain JWT from Keycloak Server
 Fetch a token using the credentials flow:
-
+```
 curl 'http://localhost:8080/auth/realms/master/protocol/openid-connect/token' \
 --header 'Content-Type: application/x-www-form-urlencoded' \
 --data-urlencode 'grant_type=client_credentials' \
 --data-urlencode 'client_id=<client-name>' \
 --data-urlencode 'client_secret=<secret-coppied>'
-
+```
 ## Query the app with Curl
 Copy the token obtained in the previous step and make a query (the port is either 3001 or 3000):
-
+```
 curl 'http://localhost:3001/charger_management/api/charger' \
 --header 'Authorization: Bearer <token>'
-
+```
 You can now test the app's authentication by altering the token.
 
 # TODO

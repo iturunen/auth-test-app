@@ -1,0 +1,22 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeVersion": "17.9.1",
+      // TODO: Clean code and use types properly
+      //"preLaunchTask": "tsc: build - tsconfig.json",
+      "runtimeArgs": [
+        "run-script",
+        "start:dev"
+      ],
+      "name": "Launch Program",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "program": "${workspaceFolder}/src/app.ts",
+    }
+  ]
+}

@@ -1,8 +1,12 @@
 
 import pino from 'pino';
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 
+import { Request as ExpressRequest } from 'express';
 
+interface Request extends ExpressRequest {
+  logger?: pino.Logger;
+}
 const getLogLevel = (): string => {
   const validLogLevels = ['debug', 'info', 'warn', 'error', 'fatal'];
   var logLevel = process.env.LOG_LEVEL ?? 'info'

@@ -21,6 +21,11 @@ interface DecodedJWT {
   payload: Record<string, unknown>;
 }
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  return String(error)
+}
+
 const fetchOpenIDConfiguration = async (): Promise<OpenIDConfiguration> => {
   try {
     const response = await axios.get<OpenIDConfiguration>(OPENID_CONFIGURATION_URL);
@@ -85,8 +90,7 @@ export const verifyTokenMiddleware = async (req: Request, res: Response, next: N
     await verifyToken(token);
     next();
   } catch (err) {
-    Logger.error(`Error verifying token: ${err.message}`);
-
+    Logger.error(`Error verifying token: ${getErrorMessage(err)}`);
     if (err instanceof JsonWebTokenError) {
       if (err instanceof TokenExpiredError) {
         return res.status(401).send('Token expired');
@@ -102,7 +106,7 @@ export const verifyTokenMiddleware = async (req: Request, res: Response, next: N
     }
    else {
       // Handle other non-JWT specific errors
-      Logger.error(`Error verifying token: ${err.message}`);
+      Logger.error(`Unexpected error verifying token: ${getErrorMessage(err)}`);
       return res.status(500).send('Internal server error');
     }
   }

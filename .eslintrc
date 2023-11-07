@@ -1,0 +1,29 @@
+{
+  "extends": [
+    "airbnb-base",
+    "plugin:import/typescript",
+    "plugin:@typescript-eslint/recommended"
+  ],
+  "env": {
+    "node": true,
+    "jest": true
+  },
+  "rules": {
+    "indent": "off",
+    "camelcase": "off",
+    "import/extensions": "off",
+    "@typescript-eslint/indent": ["error", 2],
+    "import/prefer-default-export": "off",
+    "import/no-extraneous-dependencies": ["error", {"devDependencies": ["test/**/*"]}],
+    "@typescript-eslint/camelcase": "off"  
+  },
+  "overrides": [
+    {
+      "files": ["*.spec.ts"],
+      "rules": {
+        "@typescript-eslint/no-non-null-assertion": 0
+      }
+    }
+  ],
+  "ignorePatterns": "*.openapi.ts"
+}

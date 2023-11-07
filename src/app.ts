@@ -1,12 +1,10 @@
-import express, {Request, Response } from 'express';;
-import { setupExpressLogger, Logger } from './service/Logger';
-import { verifyTokenMiddleware } from './middleware/TokenVerificationMiddleware';
+import express from 'express';
+import { route, router } from 'typera-express';
+import * as response from 'typera-express/response';
+import { SetupLogger, Logger } from './middleware/Logger';
+import { typeraVerifyTokenMiddleware } from './middleware/TokenVerificationMiddleware';
+import { errorHandler } from './middleware/ErrorHandler';
 
-
-const app = express();
-
-app.use(setupExpressLogger);
-app.use(verifyTokenMiddleware);
 const car_chargers = [
   {
     name: 'car-charger-basic',
@@ -28,22 +26,33 @@ const car_chargers = [
   },
 ];
 
-app.get(
-  '/charger_management/api/charger',
-  (request: Request, response: Response) => {
-    response.json(car_chargers);
-  }
-);
+const app = express();
 
-app.get('/charger_management/health', (req: Request, resp: Response) => {
-  resp.json({ health: 'OK' });
-});
+app.use(SetupLogger);
+
+const chargerRoute = route
+  .get('/charger_management/api/charger').use(typeraVerifyTokenMiddleware)
+  .handler(async () => response.ok(car_chargers));
+
+const healthCheckRoute = route
+  .get('/charger_management/health')
+  .handler(async () => response.ok({ health: 'OK' }));
 
 // catch-all routing to index for bad requests
-app.get('/charger_management/*', (req, res) => {
-  res.status(404).json({ error: 'bad request', url: req.url, status: 404 });
-});
+const notFoundRoute = route
+  .get('/charger_management/*').use(typeraVerifyTokenMiddleware)
+  .handler(async (req: { originalUrl: string; }) => response.notFound({ error: 'bad request', url: req.originalUrl }));
 
-((port = process.env.APP_PORT || 3000) => {
-  app.listen(port, () => Logger.info(`Server started`, `Listening: ${port}`));
-})();
+const apiRouter = router(
+  chargerRoute,
+  healthCheckRoute,
+  notFoundRoute,
+);
+
+app.use(apiRouter.handler());
+app.use(errorHandler);
+
+const port = process.env.APP_PORT || 3000;
+app.listen(port, () => {
+  Logger.info('Server started', `Listening on port ${port}`);
+});

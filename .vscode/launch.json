@@ -5,7 +5,15 @@
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "npm",
+      "restart": true,
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
       "runtimeVersion": "17.9.1",
+      //"sourceMaps": false,
+      "skipFiles": [
+        "<node_internals>/**",
+       "**/node_modules/**"
+      ],
       // TODO: Clean code and use types properly
       //"preLaunchTask": "tsc: build - tsconfig.json",
       "runtimeArgs": [
@@ -13,9 +21,6 @@
         "start:dev"
       ],
       "name": "Launch Program",
-      "skipFiles": [
-        "<node_internals>/**"
-      ],
       "program": "${workspaceFolder}/src/app.ts",
     }
   ]

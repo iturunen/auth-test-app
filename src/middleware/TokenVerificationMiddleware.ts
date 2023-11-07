@@ -1,10 +1,15 @@
 import axios from 'axios';
-import jwt, { JsonWebTokenError, JwtHeader, TokenExpiredError } from 'jsonwebtoken';
+import { verify, decode } from 'jsonwebtoken';
 import jwkToPem from 'jwk-to-pem';
-import { Request, Response, NextFunction } from 'express';
-import { Logger } from '../service/Logger';
+// import { Request, NextFunction } from 'express';
+import { isNil } from 'ramda';
+import { Middleware, Next, Request } from 'typera-express';
+import * as typeraResponse from 'typera-express/response';
+import { Logger } from './Logger';
 
 const OPENID_CONFIGURATION_URL = process.env.OPENID_CONFIGURATION_URL ?? '';
+const BEARER_PATTERN = /^Bearer ([A-Za-z0-9_-]+\.){2}[A-Za-z0-9_-]{1}/;
+// var JWS_REGEX = /^[a-zA-Z0-9\-_]+?\.[a-zA-Z0-9\-_]+?\.([a-zA-Z0-9\-_]+)?$/;
 
 type OpenIDConfiguration = {
   issuer: string;
@@ -16,28 +21,33 @@ type OpenIDConfiguration = {
   check_session_iframe?: string;
 };
 
-interface DecodedJWT {
-  header: JwtHeader;
-  payload: Record<string, unknown>;
-}
+type OperationSuccess = {
+  success: boolean;
+  reason?: string;
+};
 
-const fetchOpenIDConfiguration = async (): Promise<OpenIDConfiguration> => {
+const fetchOpenIDConfiguration = async (): Promise<OpenIDConfiguration | undefined> => {
   try {
     const response = await axios.get<OpenIDConfiguration>(OPENID_CONFIGURATION_URL);
     return response.data;
   } catch (error) {
-    throw new Error(`OpenID conf fetch failed: ${error.message}`);
+    Logger.error('Error fetching OpenID configuration');
+    return undefined;
   }
 };
 
-const fetchJwks = async (): Promise<any[]> => {
+const fetchJwks = async (): Promise<string[]> => {
   const config = await fetchOpenIDConfiguration();
+  if (!config) {
+    Logger.error('Error fetching jwks: OpenID configuration missing');
+    return [];
+  }
   const response = await axios.get(config.jwks_uri);
   return response.data.keys;
 };
 
-export const decodeJWT = (token: string): DecodedJWT => {
-  const decodedToken: any = jwt.decode(token, { complete: true });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const decodedJwtIsMalformed = (decodedToken: any): boolean => {
   if (
     decodedToken !== null
     && typeof decodedToken === 'object'
@@ -46,64 +56,68 @@ export const decodeJWT = (token: string): DecodedJWT => {
     && decodedToken.header
     && typeof decodedToken.header === 'object'
   ) {
-    return decodedToken as DecodedJWT;
-  }
-  throw new JsonWebTokenError('malformed token detected');
-};
-
-const verifyToken = async (token: string): Promise<boolean> => {
-  const decodedToken = decodeJWT(token);
-  const kid = decodedToken.header.kid;
-  const jwksKeys = await fetchJwks();
-  if (!jwksKeys) {
-    throw new JsonWebTokenError('Unexpected error fetching jwks');
-  }
-  const key = jwksKeys.find(k => k.kid === kid);
-  if (!key) {
-    throw new JsonWebTokenError('Token signed with invalid key');
-  }
-  const pem = jwkToPem(key);
-  jwt.verify(token, pem, { algorithms: ['RS256'] });
-  const now = Date.now() / 1000;
-  if (decodedToken.payload.exp && decodedToken.payload.exp < now) {
-    throw new TokenExpiredError('Token expired', new Date(decodedToken.payload.exp * 1000));
+    return false;
   }
   return true;
 };
 
-export const verifyTokenMiddleware = async (req: Request, res: Response, next: NextFunction) => {
-  if ('Bearer' !== req.headers.authorization?.split(' ')[0]) {
-    Logger.error(`Error verifying token: No bearer`);
-    return res.status(403).send('Malformed token detected');
+const verifyToken = async (authHeader:string |undefined): Promise<OperationSuccess> => {
+  if (!authHeader) {
+    Logger.error('Error verifying token: Token missing');
+    return { success: false, reason: 'No token provided' };
   }
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) {
-    Logger.error(`Error verifying token: Token missing`);
-    return res.status(401).send('Token missing');
+  // if not starts with Bearer
+  if (!authHeader.startsWith('Bearer ')) {
+    Logger.error('Error verifying token: Token is not a proper bearer token');
+    return { success: false, reason: 'Invalid auth scheme' };
   }
-  try {
-    await verifyToken(token);
-    next();
-  } catch (err) {
-    Logger.error(`Error verifying token: ${err.message}`);
 
-    if (err instanceof JsonWebTokenError) {
-      if (err instanceof TokenExpiredError) {
-        return res.status(401).send('Token expired');
-      }
-      switch (err.message) {
-        case 'malformed token detected':
-          return res.status(403).send('Malformed token detected');
-        case 'Token signed with invalid key':
-          return res.status(401).send('Invalid token signature');
-        default:
-          return res.status(401).send('Invalid token');
-      }
-    }
-   else {
-      // Handle other non-JWT specific errors
-      Logger.error(`Error verifying token: ${err.message}`);
-      return res.status(500).send('Internal server error');
-    }
+  const match = authHeader.match(BEARER_PATTERN);
+  if (isNil(match)) {
+    Logger.error('Token is not a proper bearer token');
+    return { success: false, reason: 'Token is malformed' };
   }
-}
+  const encodedToken = authHeader.replace('Bearer ', '');
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const decodedToken: any = decode(encodedToken, { complete: true });
+  if (decodedJwtIsMalformed(decodedToken)) {
+    return { success: false, reason: 'Token is malformed' };
+  }
+
+  const { kid } = decodedToken.header;
+  const jwksKeys = await fetchJwks();
+
+  if (!jwksKeys) {
+    return { success: false, reason: 'No jwk keys provided by auth server' };
+  }
+
+  const key = jwksKeys.find((k) => k.kid === kid);
+  if (!key) {
+    return { success: false, reason: 'Token signed with invalid key' };
+  }
+
+  const now = Date.now() / 1000;
+  if (decodedToken.payload.exp && decodedToken.payload.exp < now) {
+    return { success: false, reason: 'Token expired' };
+  }
+  const pem = jwkToPem(key);
+  verify(encodedToken, pem, { algorithms: ['RS256'] });
+  return { success: true };
+};
+
+export const typeraVerifyTokenMiddleware: Middleware.Middleware<
+Request<{ headers: { authorization?: string } }>,
+| typeraResponse.Unauthorized<{ message: string }>
+| Next
+> = async (request) => {
+  const auth_header = request.req.headers.authorization;
+  const result = await verifyToken(auth_header);
+
+  if (result.success) {
+    return Next();
+  }
+  Logger.error(`Error verifying token: ${result.reason}`);
+  // You can use the response module to create an HTTP response
+  return Middleware.stop(typeraResponse.unauthorized({ message: 'Unauthorized' }));
+};

@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "extends": "@tsconfig/node17/tsconfig.json",
+=======
+  "extends": "@tsconfig/node16/tsconfig.json",
+>>>>>>> 2746ee6acd96fde8a6b73ed5eb3ff8172f39bbaa
       "target": "ES2021",
       "module": "commonjs",
       "lib": ["ES2021"],

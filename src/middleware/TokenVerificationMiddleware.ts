@@ -26,7 +26,16 @@ type OperationSuccess = {
   reason?: string;
 };
 
+<<<<<<< HEAD
 const fetchOpenIDConfiguration = async (): Promise<OpenIDConfiguration | undefined> => {
+=======
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  return String(error)
+}
+
+const fetchOpenIDConfiguration = async (): Promise<OpenIDConfiguration> => {
+>>>>>>> 2746ee6acd96fde8a6b73ed5eb3ff8172f39bbaa
   try {
     const response = await axios.get<OpenIDConfiguration>(OPENID_CONFIGURATION_URL);
     return response.data;
@@ -106,6 +115,7 @@ const verifyToken = async (authHeader:string |undefined): Promise<OperationSucce
   return { success: true };
 };
 
+<<<<<<< HEAD
 export const typeraVerifyTokenMiddleware: Middleware.Middleware<
 Request<{ headers: { authorization?: string } }>,
 | typeraResponse.Unauthorized<{ message: string }>
@@ -116,6 +126,41 @@ Request<{ headers: { authorization?: string } }>,
 
   if (result.success) {
     return Next();
+=======
+export const verifyTokenMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+  if ('Bearer' !== req.headers.authorization?.split(' ')[0]) {
+    Logger.error(`Error verifying token: No bearer`);
+    return res.status(403).send('Malformed token detected');
+  }
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    Logger.error(`Error verifying token: Token missing`);
+    return res.status(401).send('Token missing');
+  }
+  try {
+    await verifyToken(token);
+    next();
+  } catch (err) {
+    Logger.error(`Error verifying token: ${getErrorMessage(err)}`);
+    if (err instanceof JsonWebTokenError) {
+      if (err instanceof TokenExpiredError) {
+        return res.status(401).send('Token expired');
+      }
+      switch (err.message) {
+        case 'malformed token detected':
+          return res.status(403).send('Malformed token detected');
+        case 'Token signed with invalid key':
+          return res.status(401).send('Invalid token signature');
+        default:
+          return res.status(401).send('Invalid token');
+      }
+    }
+   else {
+      // Handle other non-JWT specific errors
+      Logger.error(`Unexpected error verifying token: ${getErrorMessage(err)}`);
+      return res.status(500).send('Internal server error');
+    }
+>>>>>>> 2746ee6acd96fde8a6b73ed5eb3ff8172f39bbaa
   }
   Logger.error(`Error verifying token: ${result.reason}`);
   // You can use the response module to create an HTTP response

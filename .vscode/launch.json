@@ -15,7 +15,7 @@
        "**/node_modules/**"
       ],
       // TODO: Clean code and use types properly
-      //"preLaunchTask": "tsc: build - tsconfig.json",
+      "preLaunchTask": "tsc: build - tsconfig.json",
       "runtimeArgs": [
         "run-script",
         "start:dev"

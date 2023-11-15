@@ -1,7 +1,7 @@
 import express from 'express';
 import { route, router } from 'typera-express';
 import * as response from 'typera-express/response';
-import { SetupLogger, Logger } from './middleware/Logger';
+import { SetupLogger} from './middleware/Logger';
 import { typeraVerifyTokenMiddleware } from './middleware/TokenVerificationMiddleware';
 import { errorHandler } from './middleware/ErrorHandler';
 
@@ -26,33 +26,33 @@ const car_chargers = [
   },
 ];
 
-const app = express();
+export const createApp = () => {
 
-app.use(SetupLogger);
+  const app = express();
 
-const chargerRoute = route
-  .get('/charger_management/api/charger').use(typeraVerifyTokenMiddleware)
-  .handler(async () => response.ok(car_chargers));
+  app.use(SetupLogger);
 
-const healthCheckRoute = route
-  .get('/charger_management/health')
-  .handler(async () => response.ok({ health: 'OK' }));
+  const chargerRoute = route
+    .get('/charger_management/api/charger').use(typeraVerifyTokenMiddleware)
+    .handler(async () => response.ok(car_chargers));
 
-// catch-all routing to index for bad requests
-const notFoundRoute = route
-  .get('/charger_management/*').use(typeraVerifyTokenMiddleware)
-  .handler(async (req: { originalUrl: string; }) => response.notFound({ error: 'bad request', url: req.originalUrl }));
+  const healthCheckRoute = route
+    .get('/charger_management/health')
+    .handler(async () => response.ok({ health: 'OK' }));
 
-const apiRouter = router(
-  chargerRoute,
-  healthCheckRoute,
-  notFoundRoute,
-);
+  // catch-all routing to index for bad requests
+  const notFoundRoute = route
+    .get('/charger_management/*').use(typeraVerifyTokenMiddleware)
+    .handler(async () => response.notFound({ error: 'bad request' }));
 
-app.use(apiRouter.handler());
-app.use(errorHandler);
+  const apiRouter = router(
+    chargerRoute,
+    healthCheckRoute,
+    notFoundRoute,
+  );
 
-const port = process.env.APP_PORT || 3000;
-app.listen(port, () => {
-  Logger.info('Server started', `Listening on port ${port}`);
-});
+  app.use(apiRouter.handler());
+  app.use(errorHandler);
+
+  return app;
+};

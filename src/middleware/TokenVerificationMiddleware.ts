@@ -124,7 +124,7 @@ export const typeraVerifyTokenMiddleware: Middleware.Middleware<{ jwtToken: stri
   const auth_header = request.req.headers.authorization;
   const result = await verifyToken(auth_header);
 
-  if (!auth_header || result.success) {
+  if (result.success) {
     return Middleware.next({ jwtToken: auth_header?.replace('Bearer ', '') ?? '' });
   }
   Logger.error(`Error verifying token: ${result.reason}`);

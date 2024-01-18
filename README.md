@@ -1,4 +1,4 @@
-# Charger management app
+# Authentication app
 
 This is a "hello world" version of an app that incorporates its own OpenID Connect implementation. Currently, it interfaces with Keycloak. However, it's designed in a way that the authentication provider service can be replaced with any service implementing OpenID Connect, such as AWS Cognito.
 
